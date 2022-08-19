@@ -1,15 +1,4 @@
-import json
-
-import pytest
-
-from user_log import app
-
-
-@pytest.fixture()
-def apigw_event():
-    """ Generates API GW Event"""
-
-    return {
+{
   "resource": "/{proxy+}",
   "httpMethod": "POST",
   "isBase64Encoded": true,
@@ -32,17 +21,3 @@ def apigw_event():
     "protocol": "HTTP/1.1"
   }
 }
-
-
-def test_lambda_handler_write_file(apigw_event, mocker):
-    file_mock = mocker.patch.object(app, 'FILE')
-    file_mock.is_file.return_value = False
-
-    ret = app.lambda_handler(apigw_event, "")
-    data = json.loads(ret["body"])
-
-    assert ret["statusCode"] == 200
-    assert "status" in ret["body"]
-    assert "uid" in ret["body"]
-    assert data["status"] == "success"
-    assert data["name"] == "Marcio"

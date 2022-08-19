@@ -1,14 +1,14 @@
 import boto3
 import sys
 
-def create_log_users_local(dynamodb=None):
+def create_user_logs_local(dynamodb=None):
     if not dynamodb:
         dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
-    table = dynamodb.Table('LogUser')
-    table.delete()
-    pass
+    #table = dynamodb.Table('UserLog')
+    #table.delete()
+    #pass
     table = dynamodb.create_table(
-        TableName='LogUser',
+        TableName='UserLog',
         KeySchema=[
             {
                 'AttributeName': 'PK', 
@@ -42,5 +42,5 @@ if __name__ == '__main__':
     # Create the dynamodb object
     dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
 
-    table = create_log_users_local(dynamodb)
+    table = create_user_logs_local(dynamodb)
     print("Table status:", table.table_status)
