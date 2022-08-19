@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "loguserapi"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-q16x0xtgugrr"
+s3_prefix = "loguserapi"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "ENVIRONMENT=\"remote\" DYNAMODBDEVURI=\"http://docker.for.mac.host.internal:8000\""
+image_repositories = []

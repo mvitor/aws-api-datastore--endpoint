@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  myapi-endpoint
+
+  API to handle Log tracking of a user
+
+Parameters:
+  ENVIRONMENT:
+    Type: String
+    Description: AWS Environment where code is being executed (AWS_SAM_LOCAL or AWS)
+    Default: 'AWS_SAM_LOCAL'
+
+  DYNAMODBDEVURI:
+    Type: String
+    Description: AWS local DynamoDB instance URI (will only be used if AWSENVNAME is AWS_SAM_LOCAL)
+    Default: 'http://docker.for.mac.host.internal:8000'
+
+Globals:
+  Function:
+    Timeout: 60
+
+Resources:
+  LogUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: log_user/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Policies: AmazonDynamoDBFullAccess
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref ENVIRONMENT
+          DYNAMODBDEVURI: !Ref DYNAMODBDEVURI
+      Events:
+        CreateAPI:
+          Type: Api
+          Properties:
+            Path: /log-user
+            Method: post
+            RestApiId:
+              Ref: LogUsersApi
+  LogUsersApi:
+      Type: AWS::Serverless::Api
+      Properties:
+        StageName: Prod
+        Name: LogUsersApi
+        Auth:
+          ApiKeyRequired: false
+          UsagePlan:
+            CreateUsagePlan: PER_API
+            Quota:
+              Limit: 50
+              Period: DAY
+            Throttle:
+              RateLimit: 5
+  myDynamoDB:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: LogUser
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S          
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE          
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 1
+Outputs:
+  LogUsersApi:
+    Description: "API Gateway endpoint URL for Prod stage for LogUser function"
+    Value: !Sub "https://${LogUsersApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/log_user/"

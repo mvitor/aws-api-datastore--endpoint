@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  myapi-endpoint
+
+  API to handle Log tracking of a user
+
+Parameters:
+  ENVIRONMENT:
+    Type: String
+    Description: AWS Environment where code is being executed (AWS_SAM_LOCAL or AWS)
+    Default: 'AWS_SAM_LOCAL'
+
+  DYNAMODBDEVURI:
+    Type: String
+    Description: AWS local DynamoDB instance URI (will only be used if AWSENVNAME is AWS_SAM_LOCAL)
+    Default: 'http://docker.for.mac.host.internal:8000'
+
+Globals:
+  Function:
+    Timeout: 60
+
+Resources:
+  LoguserAPILambdaVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+  LoguserAPILambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "EFS + Lambda on SAM Security Group"
+      VpcId: !Ref LoguserAPILambdaVpc
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+  LoguserAPILambdaSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LoguserAPILambdaVpc
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      CidrBlock: "10.0.0.0/24"
+  LoguserAPILambdaSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LoguserAPILambdaVpc
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      CidrBlock: "10.0.1.0/24"
+  LogUsersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: log_user/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+        - x86_64
+      Policies: AmazonDynamoDBFullAccess
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref ENVIRONMENT
+          DYNAMODBDEVURI: !Ref DYNAMODBDEVURI
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LoguserAPILambdaSecurityGroup
+        SubnetIds:
+          - !Ref LoguserAPILambdaSubnetA
+          - !Ref LoguserAPILambdaSubnetB
+      Events:
+        CreateAPI:
+          Type: Api
+          Properties:
+            Path: /log-user
+            Method: post
+            RestApiId:
+              Ref: LogUsersApi
+  LogUsersApi:
+      Type: AWS::Serverless::Api
+      Properties:
+        StageName: Prod
+        Name: LogUsersApi
+        Auth:
+          ApiKeyRequired: false
+          UsagePlan:
+            CreateUsagePlan: PER_API
+            Quota:
+              Limit: 50
+              Period: DAY
+            Throttle:
+              RateLimit: 5
+  myDynamoDB:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: LogUser 
+      PrimaryKey:
+        Name: id
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+Outputs:
+  LogUsersApi:
+    Description: "API Gateway endpoint URL for Prod stage for LogUser function"
+    Value: !Sub "https://${LogUsersApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/log_user/"
